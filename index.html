@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Common Robot Arm Configurations - Wolfram Replica</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; background-color: #f5f5f5; color: #333; padding: 20px; }
+        .container { max-width: 1100px; margin: 0 auto; background: #fff; border: 1px solid #ccc; box-shadow: 0 4px 10px rgba(0,0,0,0.1); padding: 20px; border-radius: 4px; }
+        
+        header { margin-bottom: 15px; border-bottom: 1px solid #e0e0e0; padding-bottom: 10px; }
+        h1 { font-size: 1.6rem; color: #222; font-weight: normal; }
+        .authors { font-size: 0.85rem; color: #666; margin-top: 4px; }
+        
+        .demo-layout { display: flex; gap: 15px; background: #eef0f2; padding: 15px; border: 1px solid #d0d0d0; border-radius: 4px; }
+        
+        /* Left Controls Sidebar */
+        .controls-panel { width: 320px; display: flex; flex-direction: column; gap: 12px; font-size: 0.85rem; }
+        .control-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .control-row label { font-weight: bold; width: 65px; }
+        .control-row input[type="range"] { flex: 1; }
+        .control-row span { width: 40px; text-align: right; font-family: monospace; }
+        
+        select { width: 100%; padding: 6px; font-size: 0.85rem; border: 1px solid #ccc; border-radius: 3px; background: #fff; }
+        .chk-group { margin-top: 5px; }
+        .chk-group label { display: flex; align-items: center; gap: 6px; font-weight: normal; cursor: pointer; }
+        
+        /* DH Table Formatting */
+        .dh-box { background: #fff; border: 1px solid #ccc; padding: 8px; border-radius: 3px; }
+        .dh-title { font-weight: bold; font-size: 0.8rem; margin-bottom: 5px; color: #444; }
+        table.dh-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; text-align: center; }
+        table.dh-table th, table.dh-table td { border: 1px solid #bbb; padding: 3px 2px; }
+        table.dh-table th { background: #e0e0e0; font-weight: bold; }
+        .active-var { font-weight: bold; color: #d9534f; }
+
+        /* Right Canvas Viewport */
+        .viewport-panel { flex: 1; display: flex; flex-direction: column; align-items: center; background: #fff; border: 1px solid #ccc; padding: 10px; position: relative; }
+        #canvas-container { width: 100%; height: 440px; background: #ffffff; border: 1px solid #e0e0e0; }
+        
+        /* Transformation Matrix Math Display */
+        .matrix-display { margin-top: 12px; font-family: 'Times New Roman', Times, serif; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .matrix-brackets { display: inline-flex; align-items: center; border-left: 2px solid #000; border-right: 2px solid #000; padding: 2px 6px; border-radius: 4px; }
+        .matrix-grid { display: grid; grid-template-columns: repeat(4, 55px); text-align: right; gap: 4px 8px; font-family: monospace; font-size: 0.85rem; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Common Robot Arm Configurations</h1>
+        <div class="authors">Contributed by: Mohammad Sultan, Aaron T. Becker (University of Houston)</div>
+    </header>
+
+    <div class="demo-layout">
+        <!-- Sidebar Controls -->
+        <div class="controls-panel">
+            <div id="sliders-container">
+                <!-- Joint Sliders Injected Dynamically -->
+            </div>
+
+            <div class="control-row">
+                <label for="slider-grip">grip</label>
+                <input type="range" id="slider-grip" min="0" max="1" step="0.05" value="0.5">
+                <span id="val-grip">0.5</span>
+            </div>
+
+            <div class="chk-group">
+                <label><input type="checkbox" id="chk-show-robot" checked> show robot</label>
+            </div>
+
+            <div class="dh-box">
+                <div class="dh-title">DH parameters for robot arm</div>
+                <select id="preset-select">
+                    <option value="cylindrical">cylindrical robot (RPP)</option>
+                    <option value="spherical">spherical / polar robot (RRP)</option>
+                    <option value="stanford">stanford 3-DOF arm (RRP)</option>
+                    <option value="anthropomorphic">anthropomorphic arm (RRR)</option>
+                    <option value="elbow">elbow robot arm (RRR)</option>
+                    <option value="planar">planar elbow arm (RRR 2D)</option>
+                    <option value="scara">SCARA robot arm (RRP)</option>
+                    <option value="cnc">CNC robot arm (PPP)</option>
+                </select>
+                <table class="dh-table" style="margin-top:8px;">
+                    <thead>
+                        <tr><th>joint</th><th>type</th><th>r</th><th>α</th><th>d</th><th>θ</th></tr>
+                    </thead>
+                    <tbody id="dh-table-body">
+                        <!-- DH Table Injected Dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Viewport & Transformation Matrix -->
+        <div class="viewport-panel">
+            <div id="canvas-container"></div>
+            
+            <div class="matrix-display">
+                <span><i>H</i> = TransformationFunction</span>
+                <div class="matrix-brackets">
+                    <div class="matrix-grid" id="matrix-grid">
+                        <!-- 4x4 Matrix Output -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Configuration Data Matching Classical & Wolfram Models
+    const CONFIGS = {
+        cylindrical: {
+            name: "cylindrical robot",
+            types: ['r', 'p', 'p'],
+            dh: [
+                { r: "0", alpha: "0", d: "1", theta: "θ1*" },
+                { r: "0", alpha: "-π/2", d: "d2*", theta: "0" },
+                { r: "0", alpha: "0", d: "d3*", theta: "0" }
+            ],
+            numericDH: [
+                { r: 0, alpha: 0, d: 1.0 },
+                { r: 0, alpha: -Math.PI/2, d: 0 },
+                { r: 0, alpha: 0, d: 0 }
+            ],
+            defaults: [0, 0.5, 0.5],
+            ranges: [
+                { min: -Math.PI, max: Math.PI, step: 0.05, label: "θ1*" },
+                { min: 0.1, max: 1.2, step: 0.05, label: "d2*" },
+                { min: 0.1, max: 1.2, step: 0.05, label: "d3*" }
+            ]
+        },
+        spherical: {
+            name: "spherical / polar robot",
+            types: ['r', 'r', 'p'],
+            dh: [
+                { r: "0", alpha: "-π/2", d: "1", theta: "θ1*" },
+                { r: "0", alpha: "π/2", d: "0", theta: "θ2*" },
+                { r: "0", alpha: "0", d: "d3*", theta: "0" }
+            ],
+            numericDH: [
+                { r: 0, alpha: -Math.PI/2, d: 1.0 },
+                { r: 0, alpha: Math.PI/2, d: 0 },
+                { r: 0, alpha: 0, d: 0 }
+            ],
+            defaults: [0, 0.3, 0.6],
+            ranges: [
+                { min: -Math.PI, max: Math.PI, step: 0.05, label: "θ1*" },
+                { min: -Math.PI/2, max: Math.PI/2, step: 0.05, label: "θ2*" },
+                { min: 0.2, max: 1.2, step: 0.05, label: "d3*" }
+            ]
+        },
+        stanford: {
+            name: "stanford 3-DOF arm",
+            types: ['r', 'r', 'p'],
+            dh: [
+                { r: "0", alpha: "-π/2", d: "0.8", theta: "θ1*" },
+                { r: "0", alpha: "π/2", d: "0.3", theta: "θ2*" },
+                { r: "0", alpha: "0", d: "d3*", theta: "0" }
+            ],
+            numericDH: [
+                { r: 0, alpha: -Math.PI/2, d: 0.8 },
+                { r: 0, alpha: Math.PI/2, d: 0.3 },
+                { r: 0, alpha: 0, d: 0 }
+            ],
+            defaults: [0.2, 0.4, 0.7],
+            ranges: [
+                { min: -Math.PI, max: Math.PI, step: 0.05, label: "θ1*" },
+                { min: -Math.PI/2, max: Math.PI/2, step: 0.05, label: "θ2*" },
+                { min: 0.2, max: 1.2, step: 0.05, label: "d3*" }
+            ]
+        },
+        anthropomorphic: {
+            name: "anthropomorphic arm",
+            types: ['r', 'r', 'r'],
+            dh: [
+                { r: "0", alpha: "π/2", d: "1", theta: "θ1*" },
+                { r: "1.2", alpha: "0", d: "0", theta: "θ2*" },
+                { r: "0.9", alpha: "0", d: "0", theta: "θ3*" }
+            ],
+            numericDH: [
+                { r: 0, alpha: Math.PI/2, d: 1.0 },
+                { r: 1.2, alpha: 0, d: 0 },
+                { r: 0.9, alpha: 0, d: 0 }
+            ],
+            defaults: [0, 0.5, -0.4],
+            ranges: [
+                { min: -Math.PI, max: Math.PI, step: 0.05, label: "θ1*" },
+                { min: -Math.PI/2, max: Math.PI/2, step: 0.05, label: "θ2*" },
+                { min: -Math.PI/2, max: Math.PI/2, step: 0.05, label: "θ3*" }
+            ]
+        },
+        elbow: {
+            name: "elbow robot arm",
+            types: ['r', 'r', 'r'],
+            dh: [
+                { r: "0", alpha: "π/2", d: "1", theta: "θ1*" },
+                { r: "1.2", alpha: "0", d: "0", theta: "θ2*" },
+                { r: "1.0", alpha: "0", d: "0", theta: "θ3*" }
+            ],
+            numericDH: [
+                { r: 0, alpha: Math.PI/2, d: 1.0 },
+                { r: 1.2, alpha: 0, d: 0 },
+                { r: 1.0, alpha: 0, d: 0 }
+            ],
+            defaults: [0, 0.4, 0.3],
+            ranges: [
+                { min: -Math.PI, max: Math.PI, step: 0.05, label: "θ1*" },
+                { min: -Math.PI/2, max: Math.PI/2, step: 0.05, label: "θ2*" },
+                { min: -Math.PI/2, max: Math.PI/2, step: 0.05, label: "θ3*" }
+            ]
+        },
+        planar: {
+            name: "planar elbow robot arm",
+            types: ['r', 'r', 'r'],
+            dh: [
+                { r: "1.2", alpha: "0", d: "0.2", theta: "θ1*" },
+                { r: "1.0", alpha: "0", d: "0", theta: "θ2*" },
+                { r: "0.8", alpha: "0", d: "0", theta: "θ3*" }
+            ],
+            numericDH: [
+                { r: 1.2, alpha: 0, d: 0.2 },
+                { r: 1.0, alpha: 0, d: 0 },
+                { r: 0.8, alpha: 0, d: 0 }
+            ],
+            defaults: [0.2, 0.5, -0.3],
+            ranges: [
+                { min: -Math.PI, max: Math.PI, step: 0.05, label: "θ1*" },
+                { min: -Math.PI, max: Math.PI, step: 0.05, label: "θ2*" },
+                { min: -Math.PI, max: Math.PI, step: 0.05, label: "θ3*" }
+            ]
+        },
+        scara: {
+            name: "SCARA robot arm",
+            types: ['r', 'r', 'p'],
+            dh: [
+                { r: "1.2", alpha: "0", d: "1", theta: "θ1*" },
+                { r: "1.0", alpha: "π", d: "0", theta: "θ2*" },
+                { r: "0", alpha: "0", d: "d3*", theta: "0" }
+            ],
+            numericDH: [
+                { r: 1.2, alpha: 0, d: 1.0 },
+                { r: 1.0, alpha: Math.PI, d: 0 },
+                { r: 0, alpha: 0, d: 0 }
+            ],
+            defaults: [0.3, -0.4, 0.4],
+            ranges: [
+                { min: -Math.PI, max: Math.PI, step: 0.05, label: "θ1*" },
+                { min: -Math.PI, max: Math.PI, step: 0.05, label: "θ2*" },
+                { min: 0.1, max: 1.0, step: 0.05, label: "d3*" }
+            ]
+        },
+        cnc: {
+            name: "CNC robot arm",
+            types: ['p', 'p', 'p'],
+            dh: [
+                { r: "0", alpha: "-π/2", d: "d1*", theta: "0" },
+                { r: "0", alpha: "-π/2", d: "d2*", theta: "-π/2" },
+                { r: "0", alpha: "0", d: "d3*", theta: "0" }
+            ],
+            numericDH: [
+                { r: 0, alpha: -Math.PI/2, d: 0 },
+                { r: 0, alpha: -Math.PI/2, d: 0 },
+                { r: 0, alpha: 0, d: 0 }
+            ],
+            defaults: [0.6, 0.6, 0.5],
+            ranges: [
+                { min: 0.1, max: 1.2, step: 0.05, label: "d1*" },
+                { min: 0.1, max: 1.2, step: 0.05, label: "d2*" },
+                { min: 0.1, max: 1.2, step: 0.05, label: "d3*" }
+            ]
+        }
+    };
+
+    let activeKey = 'cylindrical';
+    let currentValues = [0.5, 0.5, 0.5];
+    let gripVal = 0.5;
+
+    // Three.js Scene Setup
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xffffff);
+
+    const camera = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 0.1, 100);
+    camera.position.set(5, 4, 6);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.shadowMap.enabled = true;
+    container.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 0.8, 0);
+    controls.update();
+
+    // Scene Lighting
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+    scene.add(ambientLight);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
+    dirLight.position.set(5, 10, 7);
+    scene.add(dirLight);
+
+    // Group Setup
+    const baseGroup = new THREE.Group();
+    const robotGroup = new THREE.Group();
+    scene.add(baseGroup);
+    scene.add(robotGroup);
+
+    // Circular Turntable Base Platform
+    function createTurntable() {
+        while(baseGroup.children.length > 0) baseGroup.remove(baseGroup.children[0]);
+        const geom = new THREE.CylinderGeometry(2.2, 2.2, 0.15, 64);
+        const mat = new THREE.MeshStandardMaterial({ color: 0xebad73, roughness: 0.4 });
+        const disk = new THREE.Mesh(geom, mat);
+        disk.position.y = -0.075;
+
+        const rimGeom = new THREE.CylinderGeometry(2.22, 2.22, 0.16, 64);
+        const rimMat = new THREE.MeshBasicMaterial({ color: 0x444444, wireframe: false });
+        const rim = new THREE.Mesh(rimGeom, rimMat);
+        rim.position.y = -0.08;
+
+        baseGroup.add(disk);
+    }
+    createTurntable();
+
+    // Homogeneous DH Matrix Calculation
+    function computeDHMatrix(r, alpha, d, theta) {
+        const ct = Math.cos(theta), st = Math.sin(theta);
+        const ca = Math.cos(alpha), sa = Math.sin(alpha);
+
+        const m = new THREE.Matrix4();
+        m.set(
+            ct, -st * ca,  st * sa, r * ct,
+            st,  ct * ca, -ct * sa, r * st,
+             0,       sa,       ca,      d,
+             0,        0,        0,      1
+        );
+        return m;
+    }
+
+    // Coordinate Frame RGB Generator
+    function createAxisFrame() {
+        const frame = new THREE.Group();
+        const len = 0.5;
+        const rad = 0.025;
+
+        const xMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        const yMat = new THREE.MeshBasicMaterial({ color: 0x00cc00 });
+        const zMat = new THREE.MeshBasicMaterial({ color: 0x0066ff });
+
+        const geom = new THREE.CylinderGeometry(rad, rad, len);
+
+        const xAxis = new THREE.Mesh(geom, xMat);
+        xAxis.rotation.z = -Math.PI / 2;
+        xAxis.position.x = len / 2;
+
+        const yAxis = new THREE.Mesh(geom, yMat);
+        yAxis.position.y = len / 2;
+
+        const zAxis = new THREE.Mesh(geom, zMat);
+        zAxis.rotation.x = Math.PI / 2;
+        zAxis.position.z = len / 2;
+
+        frame.add(xAxis, yAxis, zAxis);
+        return frame;
+    }
+
+    // Main Kinematics & Render Loop
+    function updateRobot() {
+        while(robotGroup.children.length > 0) robotGroup.remove(robotGroup.children[0]);
+
+        const cfg = CONFIGS[activeKey];
+        let T = new THREE.Matrix4();
+
+        const showRobot = document.getElementById('chk-show-robot').checked;
+
+        for (let i = 0; i < 3; i++) {
+            const type = cfg.types[i];
+            const num = cfg.numericDH[i];
+
+            let r = num.r;
+            let alpha = num.alpha;
+            let d = num.d;
+            let theta = 0;
+
+            if (type === 'r') {
+                theta = currentValues[i];
+            } else {
+                d += currentValues[i];
+            }
+
+            if (cfg.name === "CNC robot arm" && i === 1) theta -= Math.PI / 2;
+
+            const A = computeDHMatrix(r, alpha, d, theta);
+            const T_prev = T.clone();
+            T.multiply(A);
+
+            const posPrev = new THREE.Vector3().setFromMatrixPosition(T_prev);
+            const posCurr = new THREE.Vector3().setFromMatrixPosition(T);
+
+            if (showRobot) {
+                if (type === 'r') {
+                    const jGeom = new THREE.CylinderGeometry(0.2, 0.2, 0.3, 24);
+                    const jMat = new THREE.MeshStandardMaterial({ color: 0x555566, metalness: 0.3 });
+                    const jMesh = new THREE.Mesh(jGeom, jMat);
+                    jMesh.position.copy(posPrev);
+                    robotGroup.add(jMesh);
+                } else {
+                    const boxGeom = new THREE.BoxGeometry(0.35, 0.35, 0.35);
+                    const boxMat = new THREE.MeshStandardMaterial({ color: 0x776655, roughness: 0.5 });
+                    const boxMesh = new THREE.Mesh(boxGeom, boxMat);
+                    boxMesh.position.copy(posCurr);
+                    robotGroup.add(boxMesh);
+                }
+
+                const dist = posPrev.distanceTo(posCurr);
+                if (dist > 0.02) {
+                    const lGeom = new THREE.CylinderGeometry(0.1, 0.1, dist, 16);
+                    const lMat = new THREE.MeshStandardMaterial({ color: 0x888888 });
+                    const lMesh = new THREE.Mesh(lGeom, lMat);
+                    const mid = new THREE.Vector3().addVectors(posPrev, posCurr).multiplyScalar(0.5);
+                    lMesh.position.copy(mid);
+                    lMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), posCurr.clone().sub(posPrev).normalize());
+                    robotGroup.add(lMesh);
+                }
+            }
+
+            const frame = createAxisFrame();
+            frame.applyMatrix4(T);
+            robotGroup.add(frame);
+        }
+
+        if (showRobot) {
+            const gripGroup = new THREE.Group();
+            const gMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+            const fGeom = new THREE.BoxGeometry(0.05, 0.2, 0.05);
+
+            const leftF = new THREE.Mesh(fGeom, gMat);
+            leftF.position.set(-gripVal * 0.15, 0.1, 0);
+
+            const rightF = new THREE.Mesh(fGeom, gMat);
+            rightF.position.set(gripVal * 0.15, 0.1, 0);
+
+            gripGroup.add(leftF, rightF);
+            gripGroup.applyMatrix4(T);
+            robotGroup.add(gripGroup);
+        }
+
+        renderMatrixUI(T);
+    }
+
+    function renderMatrixUI(T) {
+        const e = T.elements;
+        const m = [
+            [e[0], e[4], e[8], e[12]],
+            [e[1], e[5], e[9], e[13]],
+            [e[2], e[6], e[10], e[14]],
+            [e[3], e[7], e[11], e[15]]
+        ];
+
+        const grid = document.getElementById('matrix-grid');
+        grid.innerHTML = '';
+        for (let r = 0; r < 4; r++) {
+            for (let c = 0; c < 4; c++) {
+                const cell = document.createElement('div');
+                cell.innerText = m[r][c].toFixed(1);
+                grid.appendChild(cell);
+            }
+        }
+    }
+
+    function renderControlsUI() {
+        const cfg = CONFIGS[activeKey];
+        const container = document.getElementById('sliders-container');
+        container.innerHTML = '';
+
+        cfg.ranges.forEach((rng, idx) => {
+            const row = document.createElement('div');
+            row.className = 'control-row';
+            
+            row.innerHTML = `
+                <label>${rng.label}</label>
+                <input type="range" id="slider-j${idx}" min="${rng.min}" max="${rng.max}" step="${rng.step}" value="${cfg.defaults[idx]}">
+                <span id="val-j${idx}">${cfg.defaults[idx]}</span>
+            `;
+            container.appendChild(row);
+
+            currentValues[idx] = cfg.defaults[idx];
+
+            row.querySelector('input').addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                currentValues[idx] = val;
+                row.querySelector('span').innerText = val.toFixed(1);
+                updateRobot();
+            });
+        });
+
+        const tbody = document.getElementById('dh-table-body');
+        tbody.innerHTML = '';
+        cfg.dh.forEach((row, idx) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${idx + 1}</td>
+                <td>${cfg.types[idx]}</td>
+                <td>${row.r}</td>
+                <td>${row.alpha}</td>
+                <td class="${cfg.types[idx] === 'p' ? 'active-var' : ''}">${row.d}</td>
+                <td class="${cfg.types[idx] === 'r' ? 'active-var' : ''}">${row.theta}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        updateRobot();
+    }
+
+    document.getElementById('preset-select').addEventListener('change', (e) => {
+        activeKey = e.target.value;
+        renderControlsUI();
+    });
+
+    document.getElementById('slider-grip').addEventListener('input', (e) => {
+        gripVal = parseFloat(e.target.value);
+        document.getElementById('val-grip').innerText = gripVal.toFixed(1);
+        updateRobot();
+    });
+
+    document.getElementById('chk-show-robot').addEventListener('change', updateRobot);
+
+    window.addEventListener('resize', () => {
+        camera.aspect = container.clientWidth / container.clientHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(container.clientWidth, container.clientHeight);
+    });
+
+    renderControlsUI();
+
+    function animate() {
+        requestAnimationFrame(animate);
+        renderer.render(scene, camera);
+    }
+    animate();
+</script>
+
+</body>
+</html>
